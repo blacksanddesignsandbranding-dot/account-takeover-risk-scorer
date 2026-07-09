@@ -12,8 +12,7 @@ Drop-in account-takeover / SIM-swap risk-scoring middleware for Node.js apps. No
 
 This repository contains the documentation and implementation architecture guidelines. The optimized, production-grade, and fully self-hosted middleware bundle can be downloaded instantly:
 
-👉 **[Download the Production Middleware Bundle](https://gumroad.com/)** 
-
+👉 👉 **[Download the Production Middleware Bundle](https://1cf25c166759491.gumroad.com/l/jxfklq)**
 ---
 
 ## 🚀 Quick Start & Implementation
