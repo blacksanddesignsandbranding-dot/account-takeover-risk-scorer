@@ -1,0 +1,19 @@
+{
+  "name": "account-takeover-risk-scorer",
+  "version": "1.0.0",
+  "description": "Drop-in account-takeover / SIM-swap risk-scoring middleware for Node.js apps.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "express",
+    "middleware",
+    "fraud-detection",
+    "account-takeover",
+    "security"
+  ],
+  "author": "DevGuard Labs",
+  "license": "MIT",
+  "dependencies": {}
+}
