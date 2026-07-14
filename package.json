@@ -1,19 +1,12 @@
 {
-  "name": "account-takeover-risk-scorer",
+  "name": "devguard-labs-risk-scorer",
   "version": "1.0.0",
-  "description": "Drop-in account-takeover / SIM-swap risk-scoring middleware for Node.js apps.",
+  "description": "Zero-dependency account-takeover / SIM-swap risk scoring middleware for Express, Fastify, and Next.js.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "example": "node example.js"
   },
-  "keywords": [
-    "express",
-    "middleware",
-    "fraud-detection",
-    "account-takeover",
-    "security"
-  ],
-  "author": "DevGuard Labs",
-  "license": "MIT",
-  "dependencies": {}
+  "license": "SEE LICENSE IN README.md",
+  "keywords": ["fraud", "security", "ato", "auth", "risk-scoring", "middleware", "express", "fastify", "nextjs", "edge-middleware"]
 }
+
