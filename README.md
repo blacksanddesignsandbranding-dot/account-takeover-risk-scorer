@@ -19,52 +19,83 @@ infrastructure.
 
 **1. Install**
 
-\`\`\`bash
+```bash
 npm install devguard-labs-risk-scorer
-\`\`\`
+```
 
 **2. Integrate (Express example)**
 
-\`\`\`javascript
+```javascript
 const express = require('express');
 const { riskScorer } = require('devguard-labs-risk-scorer');
 const app = express();
 
 app.use(riskScorer({
   threshold: 75, // risk score that triggers onRiskDetected
-  onRiskDetected: (req, score) => console.warn(\`Risk detected: \${score}\`)
+  onRiskDetected: (req, score) => console.warn(`Risk detected: ${score}`)
 }));
 
 app.post('/login', (req, res) => {
   // your existing auth logic — req.riskScore and req.riskAssessment
   // are available here
 });
-\`\`\`
+```
 
-That's it — no database setup required to get started. \`riskScorer()\` uses
+That's it — no database setup required to get started. `riskScorer()` uses
 an in-memory store by default to track known devices and recent activity
 per user.
 
+### Zero-config for Fastify and Next.js
+
+```js
+// Fastify
+const { riskScorerPlugin } = require('devguard-labs-risk-scorer/fastifyZeroConfig');
+fastify.register(riskScorerPlugin, { threshold: 75, onRiskDetected });
+```
+
+```js
+// Next.js — middleware.js at your project root
+import { createRiskScorerMiddleware } from 'devguard-labs-risk-scorer/nextZeroConfig';
+export const middleware = createRiskScorerMiddleware({ threshold: 75, onRiskDetected });
+export const config = { matcher: ['/login', '/api/login'] };
+```
+
 ### What zero-config mode actually scores
 
-Out of the box, \`riskScorer()\` evaluates three of the six available
-signals, since these are the ones derivable from a generic request with no
-route-specific context:
+**Express and Fastify** (`riskScorer()`, `riskScorerPlugin`): evaluate
+three of the six available signals automatically —
 
 - **New/unrecognized device**
 - **Session velocity spikes**
-- **Brute-force-then-success** pattern (tracked across requests)
+- **Brute-force-then-success** pattern (tracked across requests, via a
+  response-finished hook)
 
-It does **not** score impossible travel, SIM-swap recovery timing, or
-high-value-action-after-reset out of the box — those require knowing what
-the request actually *is* (a withdrawal, a password reset, a location),
-which a blanket \`app.use()\` doesn't have. For that full signal set, wrap
-your sensitive routes individually — see below.
+**Next.js Middleware** (`createRiskScorerMiddleware`): scores
+**new_device** and **session_velocity** automatically. It does **not**
+score brute-force-then-success out of the box — Next.js Middleware runs
+*before* your route handler and can't see the eventual response status.
+Call `middleware.recordAttempt(userId, success)` from inside your route
+handler once you know the outcome to enable that signal — see the
+[Integration guide](../../wiki/Integration-guide) for the full pattern.
 
-The in-memory store also does not share state across multiple app
-instances. For production deployments running more than one process, pass
-your own \`store\` (Redis/DB-backed, same interface as \`lib/store.js\`) via
-\`riskScorer({ store })\`.
+None of the zero-config entry points score impossible travel, SIM-swap
+recovery timing, or high-value-action-after-reset — those require knowing
+what the request actually *is* (a withdrawal, a password reset, a
+location), which a blanket middleware doesn't have. For that full signal
+set, wrap your sensitive routes individually — see below.
+
+### Storage caveats — read this before deploying
+
+- **Express / Fastify**: the default `InMemoryStore` does not share state
+  across multiple app instances. For production deployments running more
+  than one process, pass your own `store` (Redis/DB-backed, same interface
+  as `lib/store.js`) via `riskScorer({ store })` / `riskScorerPlugin`'s
+  options.
+- **Next.js Middleware**: runs on the Edge runtime, where instances are
+  often isolated and short-lived — the default in-memory store is
+  unreliable in most real deployments beyond local development. Use an
+  edge-compatible external store (Upstash Redis, Vercel KV, etc.)
+  implementing the same interface for anything beyond local testing.
 
 ## Full signal set (route-level integration)
 
@@ -80,7 +111,7 @@ is a short wrapper — use any of these as a template.
 
 ### Express
 
-\`\`\`js
+```js
 const { atoRiskMiddleware } = require('devguard-labs-risk-scorer/expressMiddleware');
 
 app.post(
@@ -98,11 +129,11 @@ app.post(
   }),
   withdrawHandler
 );
-\`\`\`
+```
 
 ### Fastify
 
-\`\`\`js
+```js
 const { atoRiskPreHandler } = require('devguard-labs-risk-scorer/fastifyAdapter');
 
 fastify.post("/withdraw", {
@@ -113,11 +144,11 @@ fastify.post("/withdraw", {
       reply.code(403).send({ error: "step_up_required", reasons: result.reasons }),
   }),
 }, withdrawHandler);
-\`\`\`
+```
 
 ### Next.js — App Router
 
-\`\`\`js
+```js
 import { evaluateAtoRisk } from 'devguard-labs-risk-scorer/nextAdapter';
 
 export async function POST(req) {
@@ -131,11 +162,11 @@ export async function POST(req) {
   }
   return Response.json({ ok: true, risk: result });
 }
-\`\`\`
+```
 
 ### Next.js — Pages Router
 
-\`\`\`js
+```js
 import { withAtoRisk } from 'devguard-labs-risk-scorer/nextAdapter';
 
 async function handler(req, res) {
@@ -147,7 +178,7 @@ export default withAtoRisk(handler, {
   getUserHistory: (req) => loadUserHistoryFromDB(req.userId),
   onHighRisk: (req, res, result) => res.status(403).json({ error: "step_up_required", reasons: result.reasons }),
 });
-\`\`\`
+```
 
 See the [Integration guide](../../wiki/Integration-guide) on the wiki for full setup notes and troubleshooting.
 
@@ -162,32 +193,33 @@ See the [Integration guide](../../wiki/Integration-guide) on the wiki for full s
 
 ## Core API (advanced / custom integrations)
 
-\`\`\`js
+```js
 const { scoreSessionRisk } = require('devguard-labs-risk-scorer');
 
 const result = scoreSessionRisk(event, userHistory);
 // => { score: 95, level: "high", reasons: ["new_device", "impossible_travel", ...] }
-\`\`\`
+```
 
 Run the bundled example directly:
 
-\`\`\`bash
+```bash
 node example.js
-\`\`\`
+```
 
 ## Design notes
 
 - **Fails open by default.** If the scorer throws, the request proceeds and
   logs the error rather than locking out legitimate users. Flip this in
   the relevant adapter if your risk tolerance needs fail-closed instead.
-- **You own the data.** \`userHistory\` is a plain object — pull it from
+- **You own the data.** `userHistory` is a plain object — pull it from
   Postgres, Redis, DynamoDB, whatever you already use. No vendor lock-in.
-- **Weights and thresholds are fully configurable** — pass \`options.weights\`
-  / \`options.thresholds\` to \`scoreSessionRisk\` (or the equivalent config
-  on \`riskScorer()\`) to tune to your risk appetite.
-- **Framework-agnostic core.** \`riskScorer.js\` has zero dependencies on
+- **Weights and thresholds are fully configurable** — pass `options.weights`
+  / `options.thresholds` to `scoreSessionRisk` (or the equivalent config
+  on `riskScorer()` / `riskScorerPlugin` / `createRiskScorerMiddleware`) to
+  tune to your risk appetite.
+- **Framework-agnostic core.** `riskScorer.js` has zero dependencies on
   any framework — write your own adapter for Koa, Hono, etc. in a few lines
-  using \`expressMiddleware.js\` as a template.
+  using `expressMiddleware.js` as a template.
 
 ## When to use this
 
@@ -205,6 +237,7 @@ available at the application layer — not a full enterprise fraud platform.
 
 ## Roadmap
 
+- [x] Zero-config entry points for Express, Fastify, and Next.js Middleware
 - [ ] IP reputation list support (static file injection)
 - [ ] Customizable JSON rule definitions
 - [ ] Support for additional framework adapters (Koa, NestJS)
@@ -214,7 +247,6 @@ available at the application layer — not a full enterprise fraud platform.
 Buyer receives a license to use and modify this code within their own
 product(s). Resale or redistribution of the source as a competing template
 is not permitted. (Adjust this line to match your actual listing terms.)
-
 
 *If you find this middleware useful for your stack, consider giving this repo a ⭐ to help other developers find it.*
 
