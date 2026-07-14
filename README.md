@@ -1,4 +1,5 @@
 
+# Account Takeover (ATO) Risk Scorer for Node.js
 
 The zero-dependency middleware for **Express, Next.js, and Fastify**.
 
@@ -213,8 +214,6 @@ available at the application layer — not a full enterprise fraud platform.
 Buyer receives a license to use and modify this code within their own
 product(s). Resale or redistribution of the source as a competing template
 is not permitted. (Adjust this line to match your actual listing terms.)
-
----
 
 
 *If you find this middleware useful for your stack, consider giving this repo a ⭐ to help other developers find it.*
