@@ -9,14 +9,16 @@
  * works the moment you `app.use()` it, with no database wiring required.
  *
  * IMPORTANT — signal coverage in zero-config mode:
- * Two of the six signals in riskScorer.js require information that is not
- * available from a generic, framework-level middleware (event type,
+ * Three of the seven signals in riskScorer.js require information that is
+ * not available from a generic, framework-level middleware (event type,
  * transaction amount, geolocation, phone-number-change timestamps). In
  * zero-config mode, riskScorer() actively scores:
  *   - new_device
  *   - session_velocity
  *   - brute_force_then_success (evaluated across requests, using status
  *     codes from previous responses)
+ *   - ip_reputation (only if you pass an `ipReputationList` — see below;
+ *     off by default, since there's no bundled blocklist)
  *
  * It does NOT score impossible_travel, recovery_after_number_change, or
  * high_value_action_after_reset out of the box, because those require
@@ -46,6 +48,10 @@ function defaultGetUserId(req) {
   );
 }
 
+function defaultGetIp(req) {
+  return req.ip || req.headers?.["x-forwarded-for"] || req.socket?.remoteAddress || null;
+}
+
 function riskScorer(config = {}) {
   const {
     threshold = 75,
@@ -53,9 +59,11 @@ function riskScorer(config = {}) {
     block = false,
     getUserId = defaultGetUserId,
     getDeviceFingerprint = fingerprintFromRequest,
+    getIp = defaultGetIp,
     store = new InMemoryStore(),
     weights,
     thresholds,
+    ipReputationList, // optional IpReputationList instance — see lib/ipReputation.js
   } = config;
 
   return async function (req, res, next) {
@@ -69,9 +77,10 @@ function riskScorer(config = {}) {
       const event = {
         type: "login",
         deviceFingerprint: fingerprint,
+        ip: getIp(req),
       };
 
-      result = scoreSessionRisk(event, history, { weights, thresholds });
+      result = scoreSessionRisk(event, history, { weights, thresholds, ipReputationList });
       req.riskScore = result.score;
       req.riskAssessment = result;
 

@@ -75,6 +75,10 @@ function defaultGetUserId(request) {
   );
 }
 
+function defaultGetIp(request) {
+  return request.headers.get("x-forwarded-for") || request.ip || null;
+}
+
 function createRiskScorerMiddleware(config = {}) {
   const {
     threshold = 75,
@@ -82,9 +86,11 @@ function createRiskScorerMiddleware(config = {}) {
     block = false,
     getUserId = defaultGetUserId,
     getDeviceFingerprint = fingerprintFromRequestEdge,
+    getIp = defaultGetIp,
     store = new InMemoryStore(),
     weights,
     thresholds,
+    ipReputationList,
     // Allows tests / non-Next edge runtimes (Cloudflare Workers, etc.) to
     // inject their own response builder instead of requiring next/server.
     NextResponse: InjectedNextResponse,
@@ -99,9 +105,13 @@ function createRiskScorerMiddleware(config = {}) {
       userId = getUserId(request);
       fingerprint = await getDeviceFingerprint(request);
       const history = await store.getHistory(userId);
-      const event = { type: "login", deviceFingerprint: fingerprint };
+      const event = {
+        type: "login",
+        deviceFingerprint: fingerprint,
+        ip: getIp(request),
+      };
 
-      result = scoreSessionRisk(event, history, { weights, thresholds });
+      result = scoreSessionRisk(event, history, { weights, thresholds, ipReputationList });
 
       if (result.score >= threshold) {
         onRiskDetected(request, result.score, result);

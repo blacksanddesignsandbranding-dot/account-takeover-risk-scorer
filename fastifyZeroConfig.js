@@ -38,6 +38,10 @@ function defaultGetUserId(request) {
   );
 }
 
+function defaultGetIp(request) {
+  return request.ip || request.headers?.["x-forwarded-for"] || null;
+}
+
 function riskScorerPlugin(fastify, opts, done) {
   const {
     threshold = 75,
@@ -45,9 +49,11 @@ function riskScorerPlugin(fastify, opts, done) {
     block = false,
     getUserId = defaultGetUserId,
     getDeviceFingerprint = fingerprintFromRequest,
+    getIp = defaultGetIp,
     store = new InMemoryStore(),
     weights,
     thresholds,
+    ipReputationList,
   } = opts || {};
 
   fastify.addHook("onRequest", async (request, reply) => {
@@ -57,9 +63,13 @@ function riskScorerPlugin(fastify, opts, done) {
       userId = getUserId(request);
       fingerprint = getDeviceFingerprint(request);
       const history = await store.getHistory(userId);
-      const event = { type: "login", deviceFingerprint: fingerprint };
+      const event = {
+        type: "login",
+        deviceFingerprint: fingerprint,
+        ip: getIp(request),
+      };
 
-      result = scoreSessionRisk(event, history, { weights, thresholds });
+      result = scoreSessionRisk(event, history, { weights, thresholds, ipReputationList });
       request.riskScore = result.score;
       request.riskAssessment = result;
 

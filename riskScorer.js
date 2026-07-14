@@ -17,6 +17,7 @@ const DEFAULT_WEIGHTS = {
   recoveryAfterNumberChange: 35,
   highValueActionAfterReset: 40,
   sessionVelocity: 15,
+  ipReputation: 45,
 };
 
 const DEFAULT_THRESHOLDS = {
@@ -54,6 +55,8 @@ function minutesSince(timestamp) {
  *   event.deviceFingerprint     - string identifying the device/browser
  *   event.location              - { lat, lng }
  *   event.timestamp             - ISO string (defaults to now)
+ *   event.ip                    - string IPv4 address, used with options.ipReputationList
+ *   event.ipReputationListed    - boolean, precomputed IP-blocklist result (bypasses options.ipReputationList if set)
  *
  * @param {Object} userHistory
  *   userHistory.knownDevices          - array of previously seen device fingerprints
@@ -65,8 +68,11 @@ function minutesSince(timestamp) {
  *   userHistory.sessionsLastHour      - number
  *
  * @param {Object} [options]
- *   options.weights     - override DEFAULT_WEIGHTS
- *   options.thresholds  - override DEFAULT_THRESHOLDS
+ *   options.weights            - override DEFAULT_WEIGHTS
+ *   options.thresholds         - override DEFAULT_THRESHOLDS
+ *   options.ipReputationList   - an IpReputationList instance (see lib/ipReputation.js),
+ *                                checked against event.ip. No effect if event.ip is absent
+ *                                or event.ipReputationListed is explicitly set.
  *
  * @returns {{score: number, level: "low"|"medium"|"high", reasons: string[]}}
  */
@@ -121,6 +127,23 @@ function scoreSessionRisk(event, userHistory = {}, options = {}) {
   if ((userHistory.sessionsLastHour || 0) > 5) {
     risk += weights.sessionVelocity;
     reasons.push("session_velocity");
+  }
+
+  // 7. IP reputation — local blocklist match (no external API call).
+  // Either pass options.ipReputationList (an IpReputationList instance,
+  // checked against event.ip), or precompute the check yourself and pass
+  // event.ipReputationListed = true/false directly (useful if you already
+  // do IP lookups elsewhere, e.g. against your own abuse-log table).
+  const ipListed =
+    typeof event.ipReputationListed === "boolean"
+      ? event.ipReputationListed
+      : options.ipReputationList && event.ip
+      ? options.ipReputationList.isListed(event.ip)
+      : false;
+
+  if (ipListed) {
+    risk += weights.ipReputation;
+    reasons.push("ip_reputation");
   }
 
   const score = Math.min(risk, 100);
