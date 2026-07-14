@@ -1,4 +1,3 @@
-
 # Account Takeover (ATO) Risk Scorer for Node.js
 
 The zero-dependency middleware for **Express, Next.js, and Fastify**.
@@ -20,8 +19,17 @@ infrastructure.
 **1. Install**
 
 ```bash
-npm install devguard-labs-risk-scorer
+npm install github:blacksanddesignsandbranding-dot/account-takeover-risk-scorer
 ```
+
+This installs directly from the GitHub repo — no separate npm registry
+publish required. Because `package.json`'s `name` field is
+`devguard-labs-risk-scorer`, all the `require`/`import` examples below
+work exactly as shown regardless of install source.
+
+*(A registry install via `npm install devguard-labs-risk-scorer` may be
+added later — check the repo's README for the current recommended install
+command.)*
 
 **2. Integrate (Express example)**
 
@@ -248,6 +256,7 @@ Buyer receives a license to use and modify this code within their own
 product(s). Resale or redistribution of the source as a competing template
 is not permitted. (Adjust this line to match your actual listing terms.)
 
+---
 *If you find this middleware useful for your stack, consider giving this repo a ⭐ to help other developers find it.*
 
 
