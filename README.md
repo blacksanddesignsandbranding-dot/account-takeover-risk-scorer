@@ -71,16 +71,19 @@ export const config = { matcher: ['/login', '/api/login'] };
 ### What zero-config mode actually scores
 
 **Express and Fastify** (`riskScorer()`, `riskScorerPlugin`): evaluate
-three of the six available signals automatically —
+these signals automatically —
 
 - **New/unrecognized device**
 - **Session velocity spikes**
 - **Brute-force-then-success** pattern (tracked across requests, via a
   response-finished hook)
+- **IP reputation** — only if you pass `ipReputationList` in config; off
+  by default since there's no bundled blocklist
 
 **Next.js Middleware** (`createRiskScorerMiddleware`): scores
-**new_device** and **session_velocity** automatically. It does **not**
-score brute-force-then-success out of the box — Next.js Middleware runs
+**new_device**, **session_velocity**, and **ip_reputation** (if
+`ipReputationList` is passed) automatically. It does **not** score
+brute-force-then-success out of the box — Next.js Middleware runs
 *before* your route handler and can't see the eventual response status.
 Call `middleware.recordAttempt(userId, success)` from inside your route
 handler once you know the outcome to enable that signal — see the
@@ -107,7 +110,7 @@ set, wrap your sensitive routes individually — see below.
 
 ## Full signal set (route-level integration)
 
-For the complete six-signal engine — including impossible travel and
+For the complete seven-signal engine — including impossible travel and
 SIM-swap-specific detection — wrap individual sensitive routes directly
 using the lower-level exports. This requires you to supply user history
 from your own database, but gives full control over what's scored.
@@ -190,7 +193,7 @@ export default withAtoRisk(handler, {
 
 See the [Integration guide](../../wiki/Integration-guide) on the wiki for full setup notes and troubleshooting.
 
-## All six signals (reference)
+## All seven signals (reference)
 
 - **New/unrecognized device** logging in
 - **Impossible travel** (large geo jump in a short time window)
@@ -198,6 +201,37 @@ See the [Integration guide](../../wiki/Integration-guide) on the wiki for full s
 - **Recovery flow shortly after a phone number change** (classic SIM-swap signal)
 - **High-value action right after a password reset** (the strongest single ATO signal)
 - **Session velocity spikes**
+- **IP reputation** — local blocklist match against `event.ip` (see below)
+
+### IP reputation (local blocklist, no external API)
+
+Consistent with the "zero external calls" design, IP reputation is checked
+against a list *you* supply — not a live third-party lookup:
+
+```js
+const { IpReputationList } = require('devguard-labs-risk-scorer/lib/ipReputation');
+
+// From an array (works in Node, edge/Next.js Middleware, anywhere)
+const blocklist = new IpReputationList([
+  "203.0.113.7",         // single IP
+  "198.51.100.0/24",     // CIDR range
+]);
+
+// Or from a newline-delimited file (Node.js only — reads via fs)
+// const blocklist = IpReputationList.fromFile('./known-bad-ips.txt');
+
+const result = scoreSessionRisk(
+  { type: "login", ip: req.ip },
+  userHistory,
+  { ipReputationList: blocklist }
+);
+```
+
+All zero-config entry points (`riskScorer()`, `riskScorerPlugin`,
+`createRiskScorerMiddleware`) accept `ipReputationList` directly in their
+config and will check it automatically — no extra wiring needed beyond
+passing the list in. IPv4 and IPv4 CIDR ranges only in this version; IPv6
+addresses are not matched.
 
 ## Core API (advanced / custom integrations)
 
@@ -246,7 +280,7 @@ available at the application layer — not a full enterprise fraud platform.
 ## Roadmap
 
 - [x] Zero-config entry points for Express, Fastify, and Next.js Middleware
-- [ ] IP reputation list support (static file injection)
+- [x] IP reputation list support (local blocklist, CIDR-aware)
 - [ ] Customizable JSON rule definitions
 - [ ] Support for additional framework adapters (Koa, NestJS)
 
@@ -257,7 +291,7 @@ product(s). Resale or redistribution of the source as a competing template
 is not permitted. (Adjust this line to match your actual listing terms.)
 
 ---
-*If you find this middleware useful for your stack, consider giving this repo a ⭐ to help other developers find it.*
+-*If you find this middleware useful for your stack, consider giving this repo a ⭐ to help other developers find it.*
 
 
 
